@@ -52,11 +52,19 @@ func (c *CrackWifies) setupWifiInterface() error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("unable to access inteface  down command for %s make sure to run the tool as root (sudo)", c.Iface)
 	}
+	time.Sleep(time.Second * 2)
 
-	cmd = exec.Command("iwconfig", c.Iface, "mode", "monitor")
+	cmd = exec.Command("airmon-ng", "start", c.Iface)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("unable to change inteface %s to monitor mode ( inteface may not support monitor mode)", c.Iface)
 	}
+	c.Iface = c.Iface + "mon"
+	time.Sleep(time.Second * 2)
+	cmd = exec.Command("airmon-ng", "check", "kill")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("unable to prepare inteface %s", c.Iface)
+	}
+	time.Sleep(time.Second * 2)
 	cmd = exec.Command("ifconfig", c.Iface, "up")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("unable to access inteface  up command for %s ", c.Iface)
@@ -64,6 +72,33 @@ func (c *CrackWifies) setupWifiInterface() error {
 
 	return nil
 }
+func (c *CrackWifies) MonitorWifies() error {
+	file, err := os.OpenFile("store/wifi.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		fmt.Println(err)
+		c.P.Quit()
+		return err
+	}
+	defer file.Close()
+
+	cmd := exec.Command("airodump-ng", c.Iface)
+	cmd.Stdout = file
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	// err = cmd.Wait()
+	// if err != nil {
+	// 	return err
+	// }
+
+	return nil
+}
+
 func (c *CrackWifies) Run(m *utils.Model, p *tea.Program) {
 	if err := c.checkForRequiredTools(m); err != nil {
 		p.Quit()
@@ -76,6 +111,8 @@ func (c *CrackWifies) Run(m *utils.Model, p *tea.Program) {
 		p.Quit()
 
 	}
+	c.clearScreen()
+	c.MonitorWifies()
 
 }
 
