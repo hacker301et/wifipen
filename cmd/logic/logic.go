@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -73,28 +74,20 @@ func (c *CrackWifies) setupWifiInterface() error {
 	return nil
 }
 func (c *CrackWifies) MonitorWifies() error {
-	file, err := os.OpenFile("store/wifi.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-	if err != nil {
-		fmt.Println(err)
-		c.P.Quit()
-		return err
-	}
-	defer file.Close()
 
+	st := myNewWriter{
+		buf: *bytes.NewBuffer(make([]byte, 0, 8192)),
+	}
 	cmd := exec.Command("airodump-ng", c.Iface)
-	cmd.Stdout = file
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = &st
 	cmd.Stdin = os.Stdin
-
-	err = cmd.Run()
+	time.AfterFunc(time.Second*10, func() {
+		cmd.Process.Kill()
+	})
+	err := cmd.Run()
 	if err != nil {
 		return err
 	}
-
-	// err = cmd.Wait()
-	// if err != nil {
-	// 	return err
-	// }
 
 	return nil
 }
@@ -119,7 +112,7 @@ func (c *CrackWifies) Run(m *utils.Model, p *tea.Program) {
 func (c *CrackWifies) Start() {
 	m := utils.NewView([]table.Column{
 		{Title: "tool", Width: 100},
-		{Title: "status", Width: 10},
+		{Title: "status", Width: 100},
 	})
 	p := tea.NewProgram(m)
 
